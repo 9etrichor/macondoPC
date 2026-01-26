@@ -56,7 +56,7 @@ const Products = () => {
   )
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <h1 className="text-2xl sm:text-3xl font-bold mb-6">Products</h1>
 
       {/* Mobile category dropdown */}
@@ -91,7 +91,7 @@ const Products = () => {
                     onClick={() => setSelectedCategory(cat)}
                     className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                       active
-                        ? "bg-blue-600 text-white"
+                        ? "bg-black text-white"
                         : "text-gray-700 hover:bg-gray-100"
                     }`}
                   >
@@ -112,9 +112,9 @@ const Products = () => {
                 <Link
                   key={product.name}
                   to={`/product/${index}`}
-                  className="flex flex-col rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  className="w-full md:w-[320px] mx-auto flex flex-col rounded-2xl border border-black bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow p-1"
                 >
-                  <div className="h-32 bg-gray-50 flex items-center justify-center">
+                  <div className="h-64 bg-gray-50 flex items-center justify-center border border-black rounded-t-2xl">
                     <img
                       src={Logo}
                       alt={product.name}
@@ -123,14 +123,14 @@ const Products = () => {
                   </div>
                   <div className="flex-1 p-4 flex flex-col justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-1 text-center">
                         {product.name}
                       </h3>
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="text-xs text-gray-500 mb-2 text-center">
                         {product.category}
                       </p>
                     </div>
-                    <div className="mt-2 text-base font-bold text-blue-600">
+                    <div className="mt-2 text-sm font-bold text-center">
                       ${product.price}
                     </div>
                   </div>

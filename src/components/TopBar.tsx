@@ -2,6 +2,8 @@ import { useState } from "react"
 import { NavLink } from "react-router"
 import Logo from "../assets/Logo.png"
 import ShoppingCartIcon from "../assets/shoppingCart.svg"
+import CrossIcon from "../assets/cross.svg"
+
 import { useCart } from "../context/useCart"
 
 const TopBar = () => {
@@ -11,84 +13,89 @@ const TopBar = () => {
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur shadow-sm">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <nav className="flex items-center justify-between h-16" aria-label="Main navigation">
-          <div className="flex items-center gap-2">
-            <NavLink to="/" className="flex items-center gap-2">
+    <header className="fixed top-0 left-0 right-0 z-50 h-[14vh] flex items-center bg-[#f5f5f5] border-y">
+      <div className="w-full  sm:px-6 lg:px-8">
+        <nav className="flex px-8 items-center gap-8 justify-between" aria-label="Main navigation">
+          <div className="flex items-center gap-6">
+            <NavLink to="/" className="">
               <img
                 src={Logo}
                 alt="Logo"
                 className="h-8 w-auto object-contain"
               />
-              <span className="text-lg font-semibold hidden sm:inline">Macondo Store</span>
             </NavLink>
+
+            <div className="flex items-center gap-4 text-base font-medium">
+              <NavLink
+                to="/"
+                className={(props) =>
+                  `px-2 py-1 border-b-2 transition-colors ${
+                    props.isActive ? "border-black" : "border-transparent text-gray-700 hover:border-black"
+                  }`
+                }
+              >
+                Home
+              </NavLink>
+              <NavLink
+                to="/products"
+                className={(props) =>
+                  `px-2 py-1 border-b-2 transition-colors ${
+                    props.isActive ? "border-black" : "border-transparent text-gray-700 hover:border-black"
+                  }`
+                }
+              >
+                Products
+              </NavLink>
+              <NavLink
+                to="/about"
+                className={(props) =>
+                  `px-2 py-1 border-b-2 transition-colors min-w-fit ${
+                    props.isActive ? "border-black" : "border-transparent text-gray-700 hover:border-black"
+                  }`
+                }
+              >
+                About Us
+              </NavLink>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 text-sm font-medium">
-            <NavLink
-              to="/"
-              className={(props) =>
-                `px-2 py-1 border-b-2 transition-colors ${
-                  props.isActive ? "border-blue-600 text-blue-600" : "border-transparent text-gray-700 hover:text-blue-600"
-                }`
-              }
-            >
-              Home
-            </NavLink>
-            <NavLink
-              to="/products"
-              className={(props) =>
-                `px-2 py-1 border-b-2 transition-colors ${
-                  props.isActive ? "border-blue-600 text-blue-600" : "border-transparent text-gray-700 hover:text-blue-600"
-                }`
-              }
-            >
-              Products
-            </NavLink>
-            <NavLink
-              to="/about"
-              className={(props) =>
-                `px-2 py-1 border-b-2 transition-colors ${
-                  props.isActive ? "border-blue-600 text-blue-600" : "border-transparent text-gray-700 hover:text-blue-600"
-                }`
-              }
-            >
-              About Us
-            </NavLink>
-            <button
-              type="button"
-              onClick={() => setIsCartOpen(true)}
-              className="relative inline-flex items-center justify-center rounded-full p-1 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              <img
-                src={ShoppingCartIcon}
-                alt="Shopping cart"
-                className="h-6 w-6 object-contain"
-              />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsCartOpen(true)}
+            className="relative inline-flex items-center justify-center rounded-full p-1 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          >
+            <img
+              src={ShoppingCartIcon}
+              alt="Shopping cart"
+              className="h-6 w-6 object-contain"
+            />
+          </button>
         </nav>
       </div>
+
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex h-screen">
           {/* Backdrop */}
           <button
             type="button"
             onClick={() => setIsCartOpen(false)}
-            className="flex-1 bg-black/40 backdrop-blur-sm"
+            className="flex-1 bg-black/20 backdrop-blur-xs"
           />
 
           {/* Cart panel */}
-          <aside className="w-full max-w-md h-full bg-white shadow-xl flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">Shopping Cart</h2>
+          <aside className="w-full max-w-md h-full bg-[#f5f5f5] shadow-xl flex flex-col">
+            <div className="flex items-center justify-between px-4 h-[14vh] border-b border-gray-200">
+              <h2 className="text-4xl font-semibold macondo">Cart</h2>
               <button
                 type="button"
                 onClick={() => setIsCartOpen(false)}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="inline-flex items-center justify-center p-1 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 cursor-pointer"
               >
-                Close
+                <img
+                  src={CrossIcon}
+                  alt="Close cart"
+                  className="size-12 object-contain"
+                />
               </button>
             </div>
 
@@ -119,7 +126,7 @@ const TopBar = () => {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <div className="text-right text-sm font-semibold text-blue-600">
+                        <div className="text-right text-sm font-semibold">
                           ${item.price * item.quantity}
                         </div>
                         <button
@@ -139,11 +146,11 @@ const TopBar = () => {
             <div className="border-t border-gray-200 px-4 py-3 space-y-2">
               <div className="flex items-center justify-between text-sm font-medium">
                 <span>Total</span>
-                <span className="text-blue-600">${cartTotal}</span>
+                <span className="">${cartTotal}</span>
               </div>
               <button
                 type="button"
-                className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-md bg-blue-600 text-white text-sm font-medium shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-md bg-gray-600 text-white text-sm font-medium shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Checkout
               </button>

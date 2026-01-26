@@ -1,6 +1,6 @@
 const Home = () => {
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <h1 className="text-2xl sm:text-3xl font-bold mb-4">Welcome to Macondo Store</h1>
       <p className="text-gray-700 mb-2">
         Explore our latest products and discover great deals.

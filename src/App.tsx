@@ -9,9 +9,9 @@ import { CartProvider } from "./context/CartContext"
 function App() {
   return (
     <CartProvider>
-      <div className="min-h-screen max-w-screen flex flex-col">
+      <div className="min-h-screen max-w-screen bg-[#f5f5f5] flex flex-col anonymous-pro">
         <TopBar />
-        <main className="flex-1 pt-16">
+        <main className="flex-1 pt-16 mt-[14vh]">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />

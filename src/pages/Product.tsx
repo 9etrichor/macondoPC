@@ -134,10 +134,10 @@ const Product = () => {
   const product = Number.isNaN(idx) || idx < 0 || idx >= products.length ? products[0] : products[idx]
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-black border bg-white rounded-2xl">
       <div className="flex flex-col md:flex-row gap-8 items-start">
         {/* Image section */}
-        <div className="w-full md:w-1/2 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 p-6">
+        <div className="border border-black w-full md:w-1/2 flex items-center justify-center bg-gray-50  p-6">
           <img
             src={Logo}
             alt={product.name}
@@ -150,7 +150,7 @@ const Product = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
             {product.name}
           </h1>
-          <div className="text-xl font-semibold text-blue-600 mb-4">
+          <div className="text-xl font-semibold mb-4">
             ${product.price}
           </div>
 
@@ -174,7 +174,7 @@ const Product = () => {
 
           <button
             type="button"
-            className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-blue-600 text-white text-sm font-medium shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60 cursor-pointer"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-gray-600 text-white text-sm font-medium shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-60 cursor-pointer"
             onClick={() => {
               const finalQty = quantity < 1 ? 1 : quantity
               addItem({ name: product.name, price: product.price, quantity: finalQty })
