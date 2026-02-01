@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react"
-import { Link } from "react-router"
+import { Link, useSearchParams } from "react-router"
+
 import Logo from "../assets/Logo.png"
 
 const Products = () => {
+
   const products = [
     // CPU
     { name: "Intel Core Ultra 9 285K", category: "CPU", price: 475 },
@@ -45,7 +47,11 @@ const Products = () => {
     [products]
   )
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("All")
+  const [searchParams] = useSearchParams()
+
+  const initialCategory = searchParams.get("category") || "All"
+
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory)
 
   const filteredProducts = useMemo(
     () =>
