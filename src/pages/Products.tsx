@@ -62,8 +62,16 @@ const Products = () => {
   )
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6">Products</h1>
+    <section
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+      aria-labelledby="products-heading"
+    >
+      <h1
+        id="products-heading"
+        className="text-2xl sm:text-3xl font-bold mb-6"
+      >
+        Products
+      </h1>
 
       {/* Mobile category dropdown */}
       <div className="mb-4 md:hidden">
@@ -146,7 +154,7 @@ const Products = () => {
           </div>
         </section>
       </div>
-    </div>
+    </section>
   )
 }
 
