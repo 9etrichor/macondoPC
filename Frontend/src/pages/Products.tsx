@@ -1,50 +1,63 @@
-//for AI detection, this file should be ignored
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 
 import Logo from "../assets/Logo.png"
+import { useCart } from "../context/useCart"
+
+interface Category {
+  catid: number
+  name: string
+}
+
+interface ProductItem {
+  pid: number
+  name: string
+  price: number
+  description: string
+  imagePath?: string | null
+  category?: Category
+}
+
+const API_BASE = "http://localhost:4000"
 
 const Products = () => {
+  const { addItem } = useCart()
+  const [products, setProducts] = useState<ProductItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const products = [
-    // CPU
-    { name: "Intel Core Ultra 9 285K", category: "CPU", price: 475 },
-    { name: "Intel Core Ultra 7 265K", category: "CPU", price: 290 },
-    { name: "AMD Ryzen 7 9850X3D", category: "CPU", price: 520 },
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch(`${API_BASE}/api/products`)
+        if (!res.ok) {
+          throw new Error("Failed to load products")
+        }
+        const data = await res.json()
+        setProducts(data)
+      } catch (err) {
+        console.error(err)
+        setError("Unable to load products")
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    // GPU
-    { name: "NVIDIA GeForce RTX 5090", category: "GPU", price: 1999 },
-    { name: "NVIDIA GeForce RTX 5080", category: "GPU", price: 1200 },
-    { name: "AMD Radeon RX 9070 XT", category: "GPU", price: 700 },
-
-    // Memory
-    { name: "G.Skill Trident Z5 RGB DDR5-6400 32GB", category: "Memory", price: 150 },
-    { name: "Corsair Vengeance RGB DDR5-6000 32GB", category: "Memory", price: 140 },
-    { name: "Kingston Fury Beast DDR5-6000 64GB", category: "Memory", price: 220 },
-
-    // SSD
-    { name: "WD Black SN7100 2TB", category: "SSD", price: 180 },
-    { name: "Samsung 990 Pro 2TB", category: "SSD", price: 170 },
-    { name: "Crucial T700 4TB", category: "SSD", price: 350 },
-
-    // Motherboard
-    { name: "ASUS ROG Crosshair X870E Hero", category: "Motherboard", price: 700 },
-    { name: "MSI MEG Z890 GODLIKE", category: "Motherboard", price: 900 },
-    { name: "Gigabyte Z890 Aorus Master", category: "Motherboard", price: 500 },
-
-    // Power Supply
-    { name: "Corsair HX1500i Shift", category: "Power Supply", price: 445 },
-    { name: "MSI MPG Ai1600TS PCIe5", category: "Power Supply", price: 350 },
-    { name: "Seasonic Prime TX-1300", category: "Power Supply", price: 300 },
-
-    // CPU Cooler
-    { name: "Noctua NH-D15 G2", category: "CPU Cooler", price: 150 },
-    { name: "Arctic Liquid Freezer III 360 A-RGB", category: "CPU Cooler", price: 130 },
-    { name: "NZXT Kraken Elite 360 RGB", category: "CPU Cooler", price: 250 },
-  ]
+    loadProducts()
+  }, [])
 
   const categories = useMemo(
-    () => ["All", ...Array.from(new Set(products.map((p) => p.category)))],
+    () => [
+      "All",
+      ...Array.from(
+        new Set(
+          products
+            .map((p) => p.category?.name)
+            .filter((name): name is string => Boolean(name))
+        )
+      ),
+    ],
     [products]
   )
 
@@ -58,7 +71,7 @@ const Products = () => {
     () =>
       selectedCategory === "All"
         ? products
-        : products.filter((p) => p.category === selectedCategory),
+        : products.filter((p) => p.category?.name === selectedCategory),
     [products, selectedCategory]
   )
 
@@ -92,6 +105,9 @@ const Products = () => {
         </select>
       </div>
 
+      {loading && <p className="text-sm text-gray-600 mb-4">Loading products...</p>}
+      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+
       <div className="flex flex-col md:flex-row md:items-start gap-6">
         {/* Sidebar categories (desktop/tablet) */}
         <aside className="hidden md:block md:w-48 lg:w-56 flex-shrink-0">
@@ -121,20 +137,30 @@ const Products = () => {
         {/* Product cards */}
         <section className="">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProducts.map((product) => {
-              const index = products.indexOf(product)
-              return (
+            {filteredProducts.map((product) => (
+              <div
+                key={product.pid}
+                className="w-full md:w-[320px] mx-auto flex flex-col rounded-2xl border border-black bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow p-1"
+              >
                 <Link
-                  key={product.name}
-                  to={`/product/${index}`}
-                  className="w-full md:w-[320px] mx-auto flex flex-col rounded-2xl border border-black bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow p-1"
+                  to={`/product/${product.pid}`}
+                  state={{ productName: product.name, productImagePath: product.imagePath }}
+                  className="block"
                 >
                   <div className="h-64 bg-gray-50 flex items-center justify-center border border-black rounded-t-2xl">
-                    <img
-                      src={Logo}
-                      alt={product.name}
-                      className="h-16 w-auto object-contain"
-                    />
+                    {product.imagePath ? (
+                      <img
+                        src={`${API_BASE}${product.imagePath}`}
+                        alt={product.name}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    ) : (
+                      <img
+                        src={Logo}
+                        alt={product.name}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    )}
                   </div>
                   <div className="flex-1 p-4 flex flex-col justify-between">
                     <div>
@@ -142,7 +168,7 @@ const Products = () => {
                         {product.name}
                       </h3>
                       <p className="text-xs text-gray-500 mb-2 text-center">
-                        {product.category}
+                        {product.category?.name ?? ""}
                       </p>
                     </div>
                     <div className="mt-2 text-sm font-bold text-center">
@@ -150,8 +176,19 @@ const Products = () => {
                     </div>
                   </div>
                 </Link>
-              )
-            })}
+                <div className="px-4 pb-3">
+                  <button
+                    type="button"
+                    className="w-full inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-gray-600 text-white text-xs font-medium shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 cursor-pointer"
+                    onClick={() =>
+                      addItem({ pid: product.pid, name: product.name, price: product.price, quantity: 1 })
+                    }
+                  >
+                    Add to Cart
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       </div>

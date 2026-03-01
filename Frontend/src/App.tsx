@@ -4,6 +4,7 @@ import Home from "./pages/Home"
 import About from "./pages/About"
 import Products from "./pages/Products"
 import Product from "./pages/Product"
+import Admin from "./pages/Admin"
 import { CartProvider } from "./context/CartContext"
 import NavMenu from "./components/NavMenu"
 
@@ -18,7 +19,8 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />
             <Route path="/products" element={<Products />} />
-            <Route path="/product/:index" element={<Product />} />
+            <Route path="/product/:pid" element={<Product />} />
+            <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
       </div>
