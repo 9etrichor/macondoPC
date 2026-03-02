@@ -16,7 +16,7 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | undefined>(undefined)
 
-const API_BASE = "http://localhost:4000"
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000" 
 
 // Structure persisted in localStorage (minimal): pid + quantity
 type StoredCartItem = {
