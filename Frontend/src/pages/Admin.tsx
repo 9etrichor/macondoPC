@@ -455,14 +455,14 @@ const Admin = () => {
                       <button
                         type="button"
                         onClick={() => setEditingProduct(product)}
-                        className="text-xs text-blue-600 hover:text-blue-800"
+                        className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteProduct(product.pid)}
-                        className="text-xs text-red-600 hover:text-red-800"
+                        className="text-xs text-red-600 hover:text-red-800 cursor-pointer"
                       >
                         Delete
                       </button>

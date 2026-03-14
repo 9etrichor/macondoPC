@@ -5,6 +5,9 @@ import About from "./pages/About"
 import Products from "./pages/Products"
 import Product from "./pages/Product"
 import Admin from "./pages/Admin"
+import Login from "./pages/Login"
+import Register from "./pages/Register"
+import Reset from "./pages/Reset"
 import { CartProvider } from "./context/CartContext"
 import NavMenu from "./components/NavMenu"
 
@@ -21,6 +24,9 @@ function App() {
             <Route path="/products" element={<Products />} />
             <Route path="/product/:pid" element={<Product />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/reset" element={<Reset />} />
           </Routes>
         </main>
       </div>

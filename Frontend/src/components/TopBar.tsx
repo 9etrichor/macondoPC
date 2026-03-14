@@ -59,17 +59,22 @@ const TopBar = () => {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCartOpen(true)}
-            className="relative inline-flex items-center justify-center rounded-full p-1 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-          >
-            <img
-              src={ShoppingCartIcon}
-              alt="Shopping cart"
-              className="h-6 w-6 object-contain"
-            />
-          </button>
+          <div className="flex items-center gap-6">
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="relative inline-flex items-center justify-center rounded-full p-1 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <img
+                src={ShoppingCartIcon}
+                alt="Shopping cart"
+                className="h-6 w-6 object-contain"
+              />
+            </button>
+            <NavLink to="/login">Login</NavLink>
+            <NavLink to="/register">Register</NavLink>
+          </div>
+          
         </nav>
       </div>
 
