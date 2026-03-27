@@ -1,3 +1,5 @@
+This project involve use of AI to assist in the development process.
+
 # macondoPC
 
 A simple e-commerce website with a React frontend and Express/Prisma backend.

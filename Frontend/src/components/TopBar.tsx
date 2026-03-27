@@ -1,16 +1,25 @@
 import { useState } from "react"
-import { NavLink } from "react-router"
+import { NavLink, useNavigate } from "react-router"
 import Logo from "../assets/Logo.png"
 import ShoppingCartIcon from "../assets/shoppingCart.svg"
 import CrossIcon from "../assets/cross.svg"
 
 import { useCart } from "../context/useCart"
+import { useAuth } from "../context/AuthContext"
+import { sanitizeUsername, sanitizeProductName } from "../utils/sanitize"
 
 const TopBar = () => {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const { cartItems, updateItemQuantity, removeItem } = useCart()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-[14vh] flex items-center bg-[#f5f5f5] border-y">
@@ -71,8 +80,43 @@ const TopBar = () => {
                 className="h-6 w-6 object-contain"
               />
             </button>
-            <NavLink to="/login">Login</NavLink>
-            <NavLink to="/register">Register</NavLink>
+            
+            {user ? (
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-gray-700">
+                  Welcome, {sanitizeUsername(user?.username || '')}
+                </span>
+                {user.role === "ADMIN" && (
+                  <NavLink
+                    to="/admin"
+                    className="text-sm font-medium text-black hover:text-gray-700"
+                  >
+                    Admin
+                  </NavLink>
+                )}
+                <NavLink
+                  to="/reset"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Reset Password
+                </NavLink>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm font-medium text-red-600 hover:text-red-700"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <NavLink to="/login" className="text-sm font-medium text-black hover:text-gray-700">
+                  Login
+                </NavLink>
+                <NavLink to="/register" className="text-sm font-medium text-black hover:text-gray-700">
+                  Register
+                </NavLink>
+              </div>
+            )}
           </div>
           
         </nav>
@@ -115,7 +159,7 @@ const TopBar = () => {
                       className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm gap-3"
                     >
                       <div className="flex-1 mr-2">
-                        <p className="font-medium text-gray-900 truncate">{item.name}</p>
+                        <p className="font-medium text-gray-900 truncate">{sanitizeProductName(item.name)}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-gray-500">Qty:</span>
                           <input

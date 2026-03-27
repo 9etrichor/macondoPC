@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "react-router"
 import Logo from "../assets/Logo.png"
 import { useCart } from "../context/useCart"
+import { sanitizeProductName, sanitizeDescription } from "../utils/sanitize"
 
 interface Category {
   catid: number
@@ -86,13 +87,13 @@ const Product = () => {
           {product.imagePath ? (
             <img
               src={`${API_BASE}${product.imagePath}`}
-              alt={product.name}
+              alt={sanitizeProductName(product.name)}
               className="max-h-full max-w-full object-contain"
             />
           ) : (
             <img
               src={Logo}
-              alt={product.name}
+              alt={sanitizeProductName(product.name)}
               className="max-h-full max-w-full object-contain"
             />
           )}
@@ -104,7 +105,7 @@ const Product = () => {
             id="product-title"
             className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3"
           >
-            {product.name}
+            {sanitizeProductName(product.name)}
           </h1>
 
           <div className="text-xl font-semibold mb-4">
@@ -112,7 +113,7 @@ const Product = () => {
           </div>
 
           <p className="text-sm sm:text-base text-gray-700 mb-6 leading-relaxed">
-            {product.description}
+            {sanitizeDescription(product.description)}
           </p>
 
           <div className="mb-4 flex items-center gap-3">
@@ -134,7 +135,7 @@ const Product = () => {
             className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-gray-600 text-white text-sm font-medium shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-60 cursor-pointer"
             onClick={() => {
               const finalQty = quantity < 1 ? 1 : quantity
-              addItem({ pid: product.pid, name: product.name, price: product.price, quantity: finalQty })
+              addItem({ pid: product.pid, name: sanitizeProductName(product.name), price: product.price, quantity: finalQty })
               setShowAdded(true)
               setTimeout(() => setShowAdded(false), 2000)
             }}

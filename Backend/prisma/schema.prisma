@@ -24,3 +24,13 @@ model Product {
   catid       Int
   category    Category @relation(fields: [catid], references: [catid])
 }
+
+model User {
+  uid       Int    @id @default(autoincrement())
+  username  String @unique
+  email     String @unique
+  password  String // salted and hashed password
+  role      String @default("NORMAL") // "ADMIN" or "NORMAL"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

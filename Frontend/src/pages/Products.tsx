@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router"
 
 import Logo from "../assets/Logo.png"
 import { useCart } from "../context/useCart"
+import { sanitizeProductName, sanitizeCategoryName } from "../utils/sanitize"
 
 interface Category {
   catid: number
@@ -151,13 +152,13 @@ const Products = () => {
                     {product.imagePath ? (
                       <img
                         src={`${API_BASE}${product.imagePath}`}
-                        alt={product.name}
+                        alt={sanitizeProductName(product.name)}
                         className="max-h-full max-w-full object-contain"
                       />
                     ) : (
                       <img
                         src={Logo}
-                        alt={product.name}
+                        alt={sanitizeProductName(product.name)}
                         className="max-h-full max-w-full object-contain"
                       />
                     )}
@@ -165,10 +166,10 @@ const Products = () => {
                   <div className="flex-1 p-4 flex flex-col justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 mb-1 text-center">
-                        {product.name}
+                        {sanitizeProductName(product.name)}
                       </h3>
                       <p className="text-xs text-gray-500 mb-2 text-center">
-                        {product.category?.name ?? ""}
+                        {sanitizeCategoryName(product.category?.name ?? "")}
                       </p>
                     </div>
                     <div className="mt-2 text-sm font-bold text-center">
@@ -181,7 +182,7 @@ const Products = () => {
                     type="button"
                     className="w-full inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-gray-600 text-white text-xs font-medium shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 cursor-pointer"
                     onClick={() =>
-                      addItem({ pid: product.pid, name: product.name, price: product.price, quantity: 1 })
+                      addItem({ pid: product.pid, name: sanitizeProductName(product.name), price: product.price, quantity: 1 })
                     }
                   >
                     Add to Cart

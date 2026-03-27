@@ -1,5 +1,8 @@
 import type { FormEvent } from "react"
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router"
+import { useAuth } from "../context/AuthContext"
+import { sanitizeError, sanitizeMessage, sanitizeCategoryName, sanitizeProductName } from "../utils/sanitize"
 
 interface Category {
   catid: number
@@ -19,6 +22,8 @@ interface ProductItem {
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000" 
 
 const Admin = () => {
+  const { user, isLoading } = useAuth()
+  const navigate = useNavigate()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<ProductItem[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
@@ -27,6 +32,38 @@ const Admin = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null)
+
+  // Check if user is admin, redirect if not
+  useEffect(() => {
+    if (!isLoading) { // Only check after auth state is loaded
+      if (!user || user.role !== "ADMIN") {
+        navigate("/products")
+        return
+      }
+    }
+  }, [user, navigate, isLoading])
+
+  // Load data only if user is admin and auth is loaded
+  useEffect(() => {
+    if (!isLoading && user && user.role === "ADMIN") {
+      loadCategories()
+      loadProducts()
+    }
+  }, [user, isLoading])
+
+  // Show loading while auth state is being determined
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    )
+  }
+
+  // Don't render admin content if not admin
+  if (!user || user.role !== "ADMIN") {
+    return null
+  }
 
   const loadCategories = async () => {
     try {
@@ -118,11 +155,6 @@ const Admin = () => {
     }
   }
 
-  useEffect(() => {
-    loadCategories()
-    loadProducts()
-  }, [])
-
   const handleProductSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
@@ -137,6 +169,74 @@ const Admin = () => {
       formData.delete("pid")
     }
 
+    // Validate product data
+    const catid = formData.get("catid") as string
+    const name = formData.get("name") as string
+    const price = formData.get("price") as string
+    const description = formData.get("description") as string
+
+    if (!catid) {
+      setError('Category is required')
+      return
+    }
+
+    if (!name || !name.trim()) {
+      setError('Product name is required')
+      return
+    }
+
+    if (name.trim().length < 2) {
+      setError('Product name must be at least 2 characters long')
+      return
+    }
+
+    if (name.trim().length > 100) {
+      setError('Product name must be less than 100 characters long')
+      return
+    }
+
+    if (!price) {
+      setError('Price is required')
+      return
+    }
+
+    const priceNum = parseFloat(price)
+    if (isNaN(priceNum) || priceNum <= 0) {
+      setError('Price must be a positive number')
+      return
+    }
+
+    if (priceNum > 99999.99) {
+      setError('Price must be less than $100,000')
+      return
+    }
+
+    if (!description || !description.trim()) {
+      setError('Description is required')
+      return
+    }
+
+    if (description.trim().length < 10) {
+      setError('Description must be at least 10 characters long')
+      return
+    }
+
+    if (description.trim().length > 1000) {
+      setError('Description must be less than 1000 characters long')
+      return
+    }
+
+    // Check for potentially dangerous characters
+    const dangerousChars = /[<>"'&]/
+    if (dangerousChars.test(name) || dangerousChars.test(description)) {
+      setError('Product name or description contains invalid characters')
+      return
+    }
+
+    // Sanitize inputs
+    formData.set('name', name.trim())
+    formData.set('description', description.trim())
+
     try {
       const endpoint = pidValue ? `${API_BASE}/api/products/${pidValue}` : `${API_BASE}/api/products`
       const method = pidValue ? "PUT" : "POST"
@@ -147,8 +247,8 @@ const Admin = () => {
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to create product")
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save product')
       }
 
       setSuccessMessage(pidValue ? "Product updated successfully" : "Product created successfully")
@@ -158,9 +258,8 @@ const Admin = () => {
       }
 
       setEditingProduct(null)
-      // Refresh list
       loadProducts()
-    } catch (err: unknown) {
+    } catch (err) {
       console.error(err)
       const message = err instanceof Error ? err.message : "Failed to create product"
       setError(message)
@@ -172,33 +271,51 @@ const Admin = () => {
     setError(null)
     setSuccessMessage(null)
 
-    if (!newCategoryName.trim()) {
-      setError("Category name is required")
+    const form = e.currentTarget
+    const formData = new FormData(form)
+    const categoryName = formData.get('new-category') as string
+
+    // Validate category name
+    if (!categoryName || !categoryName.trim()) {
+      setError('Category name is required')
+      return
+    }
+
+    if (categoryName.trim().length < 2) {
+      setError('Category name must be at least 2 characters long')
+      return
+    }
+
+    if (categoryName.trim().length > 50) {
+      setError('Category name must be less than 50 characters long')
+      return
+    }
+
+    // Check for potentially dangerous characters
+    const dangerousChars = /[<>"'&]/
+    if (dangerousChars.test(categoryName)) {
+      setError('Category name contains invalid characters')
       return
     }
 
     try {
       const res = await fetch(`${API_BASE}/api/categories`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: newCategoryName.trim() }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: categoryName.trim() }),
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to create category")
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to create category')
       }
 
-      const created = await res.json()
-      setCategories((prev) => [...prev, created])
-      setNewCategoryName("")
-      setSuccessMessage("Category created successfully")
-    } catch (err: unknown) {
+      setSuccessMessage('Category created successfully')
+      setNewCategoryName('')
+      loadCategories()
+    } catch (err) {
       console.error(err)
-      const message = err instanceof Error ? err.message : "Failed to create category"
-      setError(message)
+      setError(err instanceof Error ? err.message : 'Failed to create category')
     }
   }
 
@@ -233,8 +350,8 @@ const Admin = () => {
         Manage categories and products stored in the backend database.
       </p>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-      {successMessage && <p className="mb-4 text-sm text-green-600">{successMessage}</p>}
+      {error && <p className="mb-4 text-sm text-red-600">{sanitizeError(error)}</p>}
+      {successMessage && <p className="mb-4 text-sm text-green-600">{sanitizeMessage(successMessage)}</p>}
 
       {/* Category management */}
       <section className="mb-8 border border-black bg-white rounded-2xl p-4" aria-labelledby="category-heading">
@@ -251,9 +368,16 @@ const Admin = () => {
               id="new-category"
               type="text"
               value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
+              onChange={(e) => {
+                // Remove potentially dangerous characters
+                const sanitized = e.target.value.replace(/[<>"'&]/g, '')
+                setNewCategoryName(sanitized)
+              }}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. SSD"
+              maxLength={50}
+              minLength={2}
+              required
             />
           </div>
           <button
@@ -276,7 +400,7 @@ const Admin = () => {
                   className="px-2 py-1 rounded-full border border-gray-300 bg-gray-50 text-gray-700 flex items-center gap-2"
                 >
                   <span>
-                    {cat.name} <span className="text-[10px] text-gray-400">(id: {cat.catid})</span>
+                    {sanitizeCategoryName(cat.name)} <span className="text-[10px] text-gray-400">(id: {cat.catid})</span>
                   </span>
                   <button
                     type="button"
@@ -328,7 +452,7 @@ const Admin = () => {
             <option value="">Select a category</option>
             {categories.map((cat) => (
               <option key={cat.catid} value={cat.catid}>
-                {cat.name}
+                {sanitizeCategoryName(cat.name)}
               </option>
             ))}
           </select>
@@ -345,6 +469,9 @@ const Admin = () => {
             required
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             defaultValue={editingProduct?.name}
+            maxLength={100}
+            minLength={2}
+            placeholder="Enter product name"
           />
         </div>
 
@@ -357,10 +484,12 @@ const Admin = () => {
             name="price"
             type="number"
             step="0.01"
-            min="0"
+            min="0.01"
+            max="99999.99"
             required
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             defaultValue={editingProduct ? String(editingProduct.price) : ""}
+            placeholder="0.00"
           />
         </div>
 
@@ -375,6 +504,9 @@ const Admin = () => {
             rows={4}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             defaultValue={editingProduct?.description}
+            maxLength={1000}
+            minLength={10}
+            placeholder="Enter product description (min 10 characters)"
           />
         </div>
 
@@ -437,14 +569,14 @@ const Admin = () => {
                 {products.map((product) => (
                   <tr key={product.pid} className="border-t border-gray-200">
                     <td className="px-3 py-2 align-middle text-gray-600">{product.pid}</td>
-                    <td className="px-3 py-2 align-middle font-medium text-gray-900">{product.name}</td>
-                    <td className="px-3 py-2 align-middle text-gray-700">{product.category?.name ?? "-"}</td>
+                    <td className="px-3 py-2 align-middle font-medium text-gray-900">{sanitizeProductName(product.name)}</td>
+                    <td className="px-3 py-2 align-middle text-gray-700">{sanitizeCategoryName(product.category?.name ?? "-")}</td>
                     <td className="px-3 py-2 align-middle text-gray-700">${product.price}</td>
                     <td className="px-3 py-2 align-middle">
                       {product.imagePath ? (
                         <img
                           src={`${API_BASE}${product.imagePath}`}
-                          alt={product.name}
+                          alt={sanitizeProductName(product.name)}
                           className="h-10 w-10 max-h-full max-w-full object-contain border border-gray-200 rounded"
                         />
                       ) : (
