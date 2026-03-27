@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router'
 import { secureApi, initializeCsrfProtection } from '../utils/secureFetch'
 
 interface User {
