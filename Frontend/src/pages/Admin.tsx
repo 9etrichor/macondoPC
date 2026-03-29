@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
 import { useAuth } from "../context/AuthContext"
 import { sanitizeError, sanitizeMessage, sanitizeCategoryName, sanitizeProductName } from "../utils/sanitize"
+import { secureFetch, initializeCsrfProtection } from "../utils/secureFetch"
 
 interface Category {
   catid: number
@@ -46,6 +47,8 @@ const Admin = () => {
   // Load data only if user is admin and auth is loaded
   useEffect(() => {
     if (!isLoading && user && user.role === "ADMIN") {
+      // Initialize CSRF protection first
+      initializeCsrfProtection().catch(console.error)
       loadCategories()
       loadProducts()
     }
@@ -238,12 +241,14 @@ const Admin = () => {
     formData.set('description', description.trim())
 
     try {
-      const endpoint = pidValue ? `${API_BASE}/api/products/${pidValue}` : `${API_BASE}/api/products`
+      const endpoint = pidValue ? `/api/products/${pidValue}` : '/api/products'
       const method = pidValue ? "PUT" : "POST"
 
-      const res = await fetch(endpoint, {
+      // Don't set Content-Type for FormData - let browser set it with boundary
+      const res = await secureFetch(endpoint, {
         method,
         body: formData,
+        headers: {}, // Remove Content-Type to allow FormData boundary
       })
 
       if (!res.ok) {
@@ -266,14 +271,13 @@ const Admin = () => {
     }
   }
 
-  const handleCategorySubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleCategorySubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setSuccessMessage(null)
 
-    const form = e.currentTarget
-    const formData = new FormData(form)
-    const categoryName = formData.get('new-category') as string
+    // Use the controlled state value instead of FormData
+    const categoryName = newCategoryName
 
     // Validate category name
     if (!categoryName || !categoryName.trim()) {
@@ -299,7 +303,7 @@ const Admin = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/categories`, {
+      const res = await secureFetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: categoryName.trim() }),

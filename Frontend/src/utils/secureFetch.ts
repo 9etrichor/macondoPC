@@ -48,7 +48,8 @@ export const secureFetch = async (
   const defaultOptions: RequestInit = {
     credentials: 'include', // Important for cookies
     headers: {
-      'Content-Type': 'application/json',
+      // Only set Content-Type if not FormData (FormData needs boundary)
+      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers
     }
   }
@@ -125,6 +126,10 @@ export const secureApi = {
     secureFetch(url, {
       ...options,
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.headers || {})
+      },
       body: data ? JSON.stringify(data) : undefined
     }),
     

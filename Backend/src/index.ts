@@ -177,7 +177,7 @@ const upload = multer({
 // CORS configuration with security considerations
 app.use(cors({
   origin: process.env.NODE_ENV === 'IERG4210' 
-    ? ['https://yourdomain.com'] // Replace with your actual domain
+    ? ['https://s01.ierg4210.iecuhk.cc', 'http://localhost:5173', 'http://localhost:3000'] // Production + dev origins
     : ['http://localhost:5173', 'http://localhost:3000'], // Development origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
