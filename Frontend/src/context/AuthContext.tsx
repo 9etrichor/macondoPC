@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (identifier: string, password: string) => {
     try {
       const response = await secureApi.post('/api/auth/login', { identifier, password })
-      const data = await response.json()
+      const data = await response.json() as { user: any; token: string; error?: string }
 
       if (response.ok) {
         setUser(data.user)
@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (username: string, email: string, password: string) => {
     try {
       const response = await secureApi.post('/api/auth/register', { username, email, password })
-      const data = await response.json()
+      const data = await response.json() as { user: any; token: string; error?: string }
 
       if (response.ok) {
         setUser(data.user)
@@ -108,7 +108,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           'Authorization': `Bearer ${token}`
         }
       })
-      const data = await response.json()
+      const data = await response.json() as { message?: string; error?: string }
 
       if (response.ok) {
         // Logout user after password change

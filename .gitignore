@@ -25,6 +25,7 @@ dist-ssr
 
 .env.development
 .env.production
+.env
 
 DEPLOY-GUIDE.md
 Backend/uploads
