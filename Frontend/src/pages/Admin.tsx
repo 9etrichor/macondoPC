@@ -1,5 +1,5 @@
 import type { FormEvent } from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router"
 import { useAuth } from "../context/AuthContext"
 import { sanitizeError, sanitizeMessage, sanitizeCategoryName, sanitizeProductName } from "../utils/sanitize"
@@ -20,19 +20,105 @@ interface ProductItem {
   category?: Category
 }
 
+interface Order {
+  oid: number
+  uid: number
+  status: string
+  currency: string
+  merchantEmail: string
+  totalAmount: number
+  digest: string
+  salt: string
+  stripePaymentIntentId?: string
+  createdAt: string
+  updatedAt: string
+  orderItems: OrderItem[]
+  user: {
+    uid: number
+    username: string
+    email: string
+  }
+}
+
+interface OrderItem {
+  oiid: number
+  oid: number
+  pid: number
+  quantity: number
+  price: number
+  productName: string
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000" 
 
 const Admin = () => {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, token } = useAuth()
   const navigate = useNavigate()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<ProductItem[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [loadingProducts, setLoadingProducts] = useState(false)
+  const [loadingOrders, setLoadingOrders] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null)
+
+  const loadOrders = useCallback(async () => {
+    try {
+      setLoadingOrders(true)
+      const res = await secureFetch('/api/admin/orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (!res.ok) {
+        throw new Error("Failed to load orders")
+      }
+      const data = await res.json() as Order[]
+      setOrders(data)
+    } catch (err) {
+      console.error(err)
+      setError("Unable to load orders")
+    } finally {
+      setLoadingOrders(false)
+    }
+  }, [token])
+
+  const loadCategories = useCallback(async () => {
+    try {
+      setLoadingCategories(true)
+      const res = await secureFetch('/api/categories')
+      if (!res.ok) {
+        throw new Error("Failed to load categories")
+      }
+      const data = await res.json() as Category[]
+      setCategories(data)
+    } catch (err) {
+      console.error(err)
+      setError("Unable to load categories")
+    } finally {
+      setLoadingCategories(false)
+    }
+  }, [])
+
+  const loadProducts = useCallback(async () => {
+    try {
+      setLoadingProducts(true)
+      const res = await secureFetch('/api/products')
+      if (!res.ok) {
+        throw new Error("Failed to load products")
+      }
+      const data = await res.json() as ProductItem[]
+      setProducts(data)
+    } catch (err) {
+      console.error(err)
+      setError("Unable to load products")
+    } finally {
+      setLoadingProducts(false)
+    }
+  }, [])
 
   // Check if user is admin, redirect if not
   useEffect(() => {
@@ -42,7 +128,7 @@ const Admin = () => {
         return
       }
     }
-  }, [user, navigate, isLoading])
+  }, [user, navigate, isLoading, loadOrders])
 
   // Load data only if user is admin and auth is loaded
   useEffect(() => {
@@ -51,8 +137,9 @@ const Admin = () => {
       initializeCsrfProtection().catch(console.error)
       loadCategories()
       loadProducts()
+      loadOrders()
     }
-  }, [user, isLoading])
+  }, [user, isLoading, loadCategories, loadProducts, loadOrders])
 
   // Show loading while auth state is being determined
   if (isLoading) {
@@ -66,23 +153,6 @@ const Admin = () => {
   // Don't render admin content if not admin
   if (!user || user.role !== "ADMIN") {
     return null
-  }
-
-  const loadCategories = async () => {
-    try {
-      setLoadingCategories(true)
-      const res = await fetch(`${API_BASE}/api/categories`)
-      if (!res.ok) {
-        throw new Error("Failed to load categories")
-      }
-      const data = await res.json()
-      setCategories(data)
-    } catch (err) {
-      console.error(err)
-      setError("Unable to load categories")
-    } finally {
-      setLoadingCategories(false)
-    }
   }
 
   const handleRenameCategory = async (category: Category) => {
@@ -138,23 +208,6 @@ const Admin = () => {
       console.error(err)
       const message = err instanceof Error ? err.message : "Failed to delete category"
       setError(message)
-    }
-  }
-
-  const loadProducts = async () => {
-    try {
-      setLoadingProducts(true)
-      const res = await fetch(`${API_BASE}/api/products`)
-      if (!res.ok) {
-        throw new Error("Failed to load products")
-      }
-      const data = await res.json()
-      setProducts(data)
-    } catch (err) {
-      console.error(err)
-      setError("Unable to load products")
-    } finally {
-      setLoadingProducts(false)
     }
   }
 
@@ -252,7 +305,7 @@ const Admin = () => {
       })
 
       if (!res.ok) {
-        const data = await res.json()
+        const data = await res.json() as { error?: string }
         throw new Error(data.error || 'Failed to save product')
       }
 
@@ -310,7 +363,7 @@ const Admin = () => {
       })
 
       if (!res.ok) {
-        const data = await res.json()
+        const data = await res.json() as { error?: string }
         throw new Error(data.error || 'Failed to create category')
       }
 
@@ -602,6 +655,89 @@ const Admin = () => {
                       >
                         Delete
                       </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Orders management */}
+      <section className="mt-8" aria-labelledby="orders-heading">
+        <div className="flex items-center justify-between mb-3">
+          <h2 id="orders-heading" className="text-lg font-semibold">
+            Orders Management
+          </h2>
+          <button
+            type="button"
+            onClick={loadOrders}
+            className="text-xs px-3 py-1 rounded-md border border-gray-300 bg-gray-50 hover:bg-gray-100"
+          >
+            Refresh
+          </button>
+        </div>
+        {loadingOrders ? (
+          <p className="text-sm text-gray-600">Loading orders...</p>
+        ) : orders.length === 0 ? (
+          <p className="text-sm text-gray-600 italic">No orders found.</p>
+        ) : (
+          <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
+            <table className="min-w-full text-xs sm:text-sm">
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Order ID</th>
+                  <th className="px-3 py-2 text-left font-medium">Customer</th>
+                  <th className="px-3 py-2 text-left font-medium">Status</th>
+                  <th className="px-3 py-2 text-left font-medium">Total</th>
+                  <th className="px-3 py-2 text-left font-medium">Items</th>
+                  <th className="px-3 py-2 text-left font-medium">Date</th>
+                  <th className="px-3 py-2 text-left font-medium">Payment ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.oid} className="border-t border-gray-200">
+                    <td className="px-3 py-2 align-middle font-medium text-gray-900">#{order.oid}</td>
+                    <td className="px-3 py-2 align-middle text-gray-700">
+                      <div>
+                        <div className="font-medium">{order.user.username}</div>
+                        <div className="text-xs text-gray-500">{order.user.email}</div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        order.status === 'PAID' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 align-middle font-medium text-gray-900">
+                      ${order.totalAmount} {order.currency}
+                    </td>
+                    <td className="px-3 py-2 align-middle text-gray-700">
+                      <div className="text-xs">
+                        {order.orderItems.map((item) => (
+                          <div key={item.oiid}>
+                            {item.productName} × {item.quantity}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 align-middle text-gray-600">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-3 py-2 align-middle text-gray-600 text-xs">
+                      {order.stripePaymentIntentId ? (
+                        <span className="text-xs bg-gray-100 px-1 py-0.5 rounded">
+                          {order.stripePaymentIntentId.slice(0, 8)}...
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                   </tr>
                 ))}

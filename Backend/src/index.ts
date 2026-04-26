@@ -10,6 +10,7 @@ import sharp from "sharp"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { PrismaClient } from "@prisma/client"
+import Stripe from "stripe"
 
 // Extend Express Request type to include user property
 declare global {
@@ -22,6 +23,11 @@ declare global {
 
 const app = express()
 const prisma = new PrismaClient()
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2024-04-10'
+})
 
 // Comprehensive Content Security Policy
 const cspHeader = [
@@ -206,13 +212,21 @@ const authenticateToken = (req: any, res: any, next: any) => {
     return res.status(401).json({ error: "Access token required" })
   }
 
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+  jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret', (err: any, user: any) => {
     if (err) {
-      return res.status(403).json({ error: "Invalid or expired token" })
+      return res.status(403).json({ error: "Invalid token" })
     }
     req.user = user
     next()
   })
+}
+
+// Admin role middleware
+const requireAdmin = (req: any, res: any, next: any) => {
+  if (req.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: "Admin access required" })
+  }
+  next()
 }
 
 // CSRF Token endpoint - provides token for client-side apps
@@ -614,6 +628,402 @@ app.delete("/api/products/:pid", async (req, res) => {
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: "Failed to delete product" })
+  }
+})
+
+// Order Digest Generation
+function generateOrderDigest(orderData: {
+  currency: string
+  merchantEmail: string
+  salt: string
+  items: Array<{ pid: number; quantity: number; price: number; productName: string }>
+  totalPrice: number
+}): string {
+  const crypto = require('crypto')
+  
+  // Create digest string: currency|merchantEmail|salt|pid:quantity:price|pid:quantity:price|...|totalPrice
+  const itemsString = orderData.items
+    .map(item => `${item.pid}:${item.quantity}:${item.price}`)
+    .join('|')
+  
+  const digestString = [
+    orderData.currency,
+    orderData.merchantEmail,
+    orderData.salt,
+    itemsString,
+    orderData.totalPrice.toString()
+  ].join('|')
+  
+  return crypto.createHash('sha256').update(digestString).digest('hex')
+}
+
+// Order Validation and Creation
+app.post("/api/orders/create", authenticateToken, validateCsrf(), async (req, res) => {
+  try {
+    const { items } = req.body
+    const user = req.user as any
+
+    // Validate input
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "Order items are required" })
+    }
+
+    // Validate each item
+    for (const item of items) {
+      if (!item.pid || !item.quantity || item.quantity <= 0) {
+        return res.status(400).json({ error: "Invalid item data: pid and positive quantity required" })
+      }
+    }
+
+    // Fetch products from database to get current prices and validate existence
+    const productIds = items.map(item => item.pid)
+    const products = await prisma.product.findMany({
+      where: { pid: { in: productIds } }
+    })
+
+    // Check if all products exist
+    if (products.length !== items.length) {
+      return res.status(400).json({ error: "One or more products not found" })
+    }
+
+    // Calculate total and prepare order items with snapshot data
+    let totalPrice = 0
+    const orderItemsData = items.map(item => {
+      const product = products.find(p => p.pid === item.pid)
+      if (!product) {
+        throw new Error(`Product ${item.pid} not found`)
+      }
+      
+      const itemTotal = product.price * item.quantity
+      totalPrice += itemTotal
+      
+      return {
+        pid: item.pid,
+        quantity: item.quantity,
+        price: product.price, // Snapshot price
+        productName: product.name // Snapshot name
+      }
+    })
+
+    // Generate salt and digest
+    const salt = crypto.randomBytes(32).toString('hex')
+    const digestData = {
+      currency: 'HKD',
+      merchantEmail: 'dick2452683247@gmail.com',
+      salt,
+      items: orderItemsData,
+      totalPrice
+    }
+    
+    const digest = generateOrderDigest(digestData)
+
+    // Create order in database
+    const order = await prisma.order.create({
+      data: {
+        uid: user.uid,
+        totalAmount: totalPrice,
+        status: 'PENDING',
+        digest,
+        currency: 'HKD',
+        merchantEmail: 'dick2452683247@gmail.com',
+        salt
+      }
+    })
+
+    // Create order items
+    await prisma.orderItem.createMany({
+      data: orderItemsData.map(item => ({
+        oid: order.oid,
+        pid: item.pid,
+        quantity: item.quantity,
+        price: item.price,
+        productName: item.productName
+      }))
+    })
+
+    // Create Stripe Checkout Session
+    try {
+      // Validate minimum amount (Stripe minimum is ~HKD 4.00)
+      const minimumAmountHKD = 4.00; // HKD 4.00 minimum
+      if (totalPrice < minimumAmountHKD) {
+        return res.status(400).json({
+          error: `Minimum order amount is HKD ${minimumAmountHKD}. Current total: HKD ${totalPrice}`
+        })
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: orderItemsData.map(item => ({
+          price_data: {
+            currency: 'HKD',
+            product_data: {
+              name: item.productName,
+            },
+            unit_amount: Math.round(item.price * 100), // Convert to cents
+          },
+          quantity: item.quantity,
+        })),
+        mode: 'payment',
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/order-success/${order.oid}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/checkout/cancel`,
+        metadata: {
+          orderId: order.oid.toString(),
+          digest: digest
+        }
+      })
+
+      // Update order with Stripe session ID
+      await prisma.order.update({
+        where: { oid: order.oid },
+        data: { stripePaymentIntentId: session.id }
+      })
+
+      res.json({
+        orderId: order.oid,
+        digest,
+        totalAmount: totalPrice,
+        currency: 'HKD',
+        stripeCheckoutUrl: session.url
+      })
+
+    } catch (stripeError) {
+      console.error('Stripe session creation error:', stripeError)
+      // If Stripe fails, still return order info but without checkout URL
+      res.json({
+        orderId: order.oid,
+        digest,
+        totalAmount: totalPrice,
+        currency: 'HKD',
+        error: 'Stripe checkout session failed'
+      })
+    }
+
+  } catch (err) {
+    console.error('Order creation error:', err)
+    res.status(500).json({ error: "Failed to create order" })
+  }
+})
+
+// Get All Orders (Admin Only)
+app.get("/api/admin/orders", authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      include: {
+        orderItems: true,
+        user: {
+          select: {
+            uid: true,
+            username: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    res.json(orders)
+  } catch (err) {
+    console.error('Admin orders fetch error:', err)
+    res.status(500).json({ error: "Failed to fetch orders" })
+  }
+})
+
+// Get User's Orders (Recent 5)
+app.get("/api/user/orders", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user as any
+
+    const orders = await prisma.order.findMany({
+      where: { uid: user.uid },
+      include: {
+        orderItems: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 5 // Limit to recent 5 orders
+    })
+
+    res.json(orders)
+  } catch (err) {
+    console.error('User orders fetch error:', err)
+    res.status(500).json({ error: "Failed to fetch orders" })
+  }
+})
+
+// Get Order Details
+app.get("/api/orders/:orderId", authenticateToken, async (req, res) => {
+  try {
+    const { orderId } = req.params
+    const user = req.user as any
+
+    const order = await prisma.order.findUnique({
+      where: { oid: parseInt(orderId) },
+      include: {
+        orderItems: true,
+        user: {
+          select: {
+            uid: true,
+            username: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" })
+    }
+
+    // Check if user owns this order or is admin
+    if (order.uid !== user.uid && user.role !== "ADMIN") {
+      return res.status(403).json({ error: "Access denied" })
+    }
+
+    res.json(order)
+  } catch (err) {
+    console.error('Order fetch error:', err)
+    res.status(500).json({ error: "Failed to fetch order" })
+  }
+})
+
+// Test Webhook Endpoint (for development testing)
+app.post('/api/test-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  console.log('TEST WEBHOOK: Received webhook event')
+  console.log('Headers:', req.headers)
+  console.log('Body:', req.body.toString())
+  
+  try {
+    const event = JSON.parse(req.body.toString())
+    console.log('Parsed event:', event.type, event.id)
+    
+    // If this is a checkout.session.completed event, process it
+    if (event.type === 'checkout.session.completed') {
+      console.log('TEST WEBHOOK: Processing checkout.session.completed')
+      // You can manually call the webhook processing logic here
+    }
+    
+    res.json({ received: true, event_type: event.type })
+  } catch (err) {
+    console.error('TEST WEBHOOK: Error parsing event:', err)
+    res.status(400).json({ error: 'Invalid JSON' })
+  }
+})
+
+// Stripe Webhook Endpoint for Payment Completion
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'] as string
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+
+  // For development, skip signature verification if webhook secret is not set properly
+  let event: Stripe.Event
+  
+  if (webhookSecret && webhookSecret !== 'webhook') {
+    // Proper webhook verification
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret)
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err)
+      return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  } else {
+    // Development mode: parse event without verification
+    try {
+      event = JSON.parse(req.body.toString())
+      console.log('DEV MODE: Processing webhook without signature verification')
+    } catch (err) {
+      console.error('Failed to parse webhook event:', err)
+      return res.status(400).send('Invalid JSON')
+    }
+  }
+
+  // Handle the event
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        const session = event.data.object as Stripe.Checkout.Session
+        
+        // Extract metadata
+        const orderId = parseInt(session.metadata?.orderId || '0')
+        const digest = session.metadata?.digest || ''
+        
+        if (!orderId || !digest) {
+          console.error('Missing order metadata in webhook')
+          return res.status(400).send('Missing order metadata')
+        }
+
+        // Check if transaction already processed
+        const existingOrder = await prisma.order.findUnique({
+          where: { oid: orderId }
+        })
+
+        if (!existingOrder) {
+          console.error('Order not found:', orderId)
+          return res.status(404).send('Order not found')
+        }
+
+        if (existingOrder.status === 'PAID') {
+          console.log('Order already processed:', orderId)
+          return res.status(200).send('Order already processed')
+        }
+
+        // Get order items to regenerate digest
+        const orderItems = await prisma.orderItem.findMany({
+          where: { oid: orderId },
+          include: { product: true }
+        })
+
+        if (orderItems.length === 0) {
+          console.error('No order items found for order:', orderId)
+          return res.status(400).send('No order items found')
+        }
+
+        // Regenerate digest for validation
+        const digestData = {
+          currency: existingOrder.currency,
+          merchantEmail: existingOrder.merchantEmail,
+          salt: existingOrder.salt,
+          items: orderItems.map(item => ({
+            pid: item.pid,
+            quantity: item.quantity,
+            price: item.price,
+            productName: item.productName
+          })),
+          totalPrice: existingOrder.totalAmount
+        }
+
+        const regeneratedDigest = generateOrderDigest(digestData)
+
+        // Validate digest against stored one
+        if (regeneratedDigest !== digest) {
+          console.error('Digest validation failed for order:', orderId)
+          console.error('Expected:', digest)
+          console.error('Generated:', regeneratedDigest)
+          return res.status(400).send('Digest validation failed')
+        }
+
+        // Update order status to PAID
+        await prisma.order.update({
+          where: { oid: orderId },
+          data: { 
+            status: 'PAID',
+            stripePaymentIntentId: session.payment_intent as string
+          }
+        })
+
+        console.log('Payment completed successfully for order:', orderId)
+        break
+
+      default:
+        console.log(`Unhandled event type: ${event.type}`)
+    }
+
+    res.status(200).send('Webhook processed successfully')
+  } catch (err) {
+    console.error('Webhook processing error:', err)
+    res.status(500).send('Webhook processing failed')
   }
 })
 

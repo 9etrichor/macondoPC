@@ -23,6 +23,8 @@ model Product {
 
   catid       Int
   category    Category @relation(fields: [catid], references: [catid])
+  
+  orderItems  OrderItem[]
 }
 
 model User {
@@ -33,4 +35,35 @@ model User {
   role      String @default("NORMAL") // "ADMIN" or "NORMAL"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  orders    Order[]
+}
+
+model Order {
+  oid                 Int      @id @default(autoincrement())
+  uid                 Int
+  totalAmount         Float
+  status              String   @default("PENDING") // "PENDING", "PAID", "FAILED", "REFUNDED"
+  digest              String   // H(order, salt) for integrity
+  currency            String   @default("HKD")
+  merchantEmail       String   @default("dick2452683247@gmail.com")
+  salt                String   // random salt for hash
+  stripePaymentIntentId String? // Stripe payment intent ID
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  user                User     @relation(fields: [uid], references: [uid])
+  orderItems          OrderItem[]
+}
+
+model OrderItem {
+  orderItemId Int    @id @default(autoincrement())
+  oid         Int
+  pid         Int
+  quantity    Int
+  price       Float    // snapshot price at time of purchase
+  productName String  // snapshot name at time of purchase
+  
+  order       Order   @relation(fields: [oid], references: [oid])
+  product     Product @relation(fields: [pid], references: [pid])
 }

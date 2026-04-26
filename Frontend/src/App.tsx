@@ -7,6 +7,9 @@ import Admin from "./pages/Admin"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
 import Reset from "./pages/Reset"
+import OrderSuccess from "./pages/OrderSuccess"
+import CheckoutCancel from "./pages/CheckoutCancel"
+import MemberPortal from "./pages/MemberPortal"
 import { CartProvider } from "./context/CartContext"
 import { AuthProvider } from "./context/AuthContext"
 import NavMenu from "./components/NavMenu"
@@ -29,6 +32,9 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/reset" element={<Reset />} />
+              <Route path="/order-success/:orderId" element={<OrderSuccess />} />
+              <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+              <Route path="/member" element={<MemberPortal />} />
             </Routes>
           </main>
         </div>
